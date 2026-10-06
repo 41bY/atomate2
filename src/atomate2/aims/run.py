@@ -5,43 +5,120 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shlex
 import subprocess
 from os.path import expandvars
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ase.calculators.aims import Aims, AimsProfile
 from ase.calculators.socketio import SocketIOCalculator
+from custodian import Custodian
+from custodian.aims.handlers import UnconvergedErrorHandler
+from custodian.aims.jobs import AimsJob
+from custodian.aims.validators import AimsOutputValidator
+from emmet.core.types.enums import ValueEnum
 from monty.json import MontyDecoder
 from pymatgen.io.ase import AseAtomsAdaptor
 
 from atomate2 import SETTINGS
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from custodian.custodian import ErrorHandler, Validator
     from pymatgen.core import Molecule, Structure
 
     from atomate2.aims.schemas.task import AimsTaskDoc
+
+DEFAULT_HANDLERS = (UnconvergedErrorHandler(),)
+_DEFAULT_VALIDATORS = (AimsOutputValidator(),)
+
 logger = logging.getLogger(__name__)
+
+
+class JobType(ValueEnum):
+    """
+    Type of FHI-aims job.
+
+    - ``DIRECT``: Run FHI-aims without using custodian.
+    - ``NORMAL``: Normal custodian :obj:`.AimsJob`.
+    """
+
+    DIRECT = "direct"
+    NORMAL = "normal"
 
 
 def run_aims(
     aims_cmd: str = None,
+    job_type: JobType | str = JobType.DIRECT,
+    max_errors: int = SETTINGS.AIMS_CUSTODIAN_MAX_ERRORS,
+    scratch_dir: str = SETTINGS.CUSTODIAN_SCRATCH_DIR,
+    handlers: Sequence[ErrorHandler] = DEFAULT_HANDLERS,
+    validators: Sequence[Validator] = _DEFAULT_VALIDATORS,
+    aims_job_kwargs: dict[str, Any] = None,
+    custodian_kwargs: dict[str, Any] = None,
 ) -> None:
     """
     Run FHI-aims.
+
+    Supports running FHI-aims with or without custodian (see :obj:`JobType`).
 
     Parameters
     ----------
     aims_cmd : str
         The command used to run FHI-aims (defaults to SETTINGS.AIMS_CMD).
+    job_type : str or .JobType
+        The job type. Defaults to DIRECT, i.e. without custodian.
+    max_errors : int
+        The maximum number of errors allowed by custodian.
+    scratch_dir : str
+        The scratch directory used by custodian.
+    handlers : list of .ErrorHandler
+        The error handlers used by custodian.
+    validators : list of .Validator
+        The validators handlers used by custodian.
+    aims_job_kwargs : dict
+        Keyword arguments that are passed to :obj:`.AimsJob`.
+    custodian_kwargs : dict
+        Keyword arguments that are passed to :obj:`.Custodian`.
     """
     if aims_cmd is None:
         aims_cmd = SETTINGS.AIMS_CMD
 
     aims_cmd = expandvars(aims_cmd)
 
-    logger.info(f"Running command: {aims_cmd}")
-    return_code = subprocess.call(["/bin/bash", "-c", aims_cmd], env=os.environ)
-    logger.info(f"{aims_cmd} finished running with return code: {return_code}")
+    if job_type == JobType.DIRECT:
+        logger.info(f"Running command: {aims_cmd}")
+        return_code = subprocess.call(["/bin/bash", "-c", aims_cmd], env=os.environ)
+        logger.info(f"{aims_cmd} finished running with return code: {return_code}")
+        return
+
+    aims_job_kwargs = aims_job_kwargs or {}
+    custodian_kwargs = custodian_kwargs or {}
+
+    # AimsJob redirects the output itself: drop the "> aims.out" of AIMS_CMD
+    split_aims_cmd = shlex.split(aims_cmd)
+    if ">" in split_aims_cmd:
+        idx = split_aims_cmd.index(">")
+        aims_job_kwargs.setdefault("output_file", split_aims_cmd[idx + 1])
+        split_aims_cmd = split_aims_cmd[:idx]
+
+    if job_type == JobType.NORMAL:
+        jobs = [AimsJob(split_aims_cmd, **aims_job_kwargs)]
+    else:
+        raise ValueError(f"Unsupported {job_type=}")
+
+    custodian_manager = Custodian(
+        handlers,
+        jobs,
+        validators=validators,
+        max_errors=max_errors,
+        scratch_dir=scratch_dir,
+        **custodian_kwargs,
+    )
+
+    logger.info("Running FHI-aims using custodian.")
+    custodian_manager.run()
 
 
 def should_stop_children(
