@@ -186,6 +186,9 @@ class Atomate2Settings(BaseSettings):
     AIMS_CMD: str = Field(
         "aims.x > aims.out", description="The default command used run FHI-aims"
     )
+    AIMS_CUSTODIAN_MAX_ERRORS: int = Field(
+        5, description="Maximum number of errors to correct before custodian gives up"
+    )
 
     # Elastic constant settings
     ELASTIC_FITTING_METHOD: str = Field(

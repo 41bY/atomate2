@@ -20,6 +20,7 @@ from pymatgen.entries.computed_entries import ComputedEntry
 
 from atomate2.aims.schemas.calculation import AimsObject, Calculation, TaskState
 from atomate2.aims.utils import datetime_str
+from atomate2.common.utils import parse_custodian
 
 _VOLUMETRIC_FILES = ("total_density", "spin_density", "eigenstate_density")
 logger = logging.getLogger(__name__)
@@ -505,6 +506,7 @@ class AimsTaskDoc(BaseTaskDocument, StructureMetadata, MoleculeMetadata):
 
         analysis = AnalysisDoc.from_aims_calc_docs(calcs_reversed)
         tags = additional_fields.get("tags")
+        custodian = parse_custodian(dir_name)
 
         dir_name = get_uri(dir_name)  # convert to full uri path
 
@@ -533,6 +535,7 @@ class AimsTaskDoc(BaseTaskDocument, StructureMetadata, MoleculeMetadata):
             "entry": cls.get_entry(calcs_reversed),
             "aims_objects": aims_objects,
             "included_objects": included_objects,
+            "custodian": custodian,
         }
         doc = cls(**data)
         return doc.model_copy(update=additional_fields, deep=True)

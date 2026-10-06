@@ -38,7 +38,12 @@ _INPUT_FILES = [
 _OUTPUT_FILES = ["aims.out", "geometry.in.next_step", "hessian.aims", "*.cube", "*.csc"]
 
 # Files to zip: inputs, outputs and additionally generated files
-_FILES_TO_ZIP = _INPUT_FILES + _OUTPUT_FILES
+_FILES_TO_ZIP = (
+    _INPUT_FILES
+    + _OUTPUT_FILES
+    + [f"{name}.orig" for name in _INPUT_FILES]
+    + ["custodian.json"]
+)
 
 
 @due.dcite(Doi("10.1016/j.cpc.2009.06.022"), description="FHI-AIMS")
@@ -46,6 +51,10 @@ _FILES_TO_ZIP = _INPUT_FILES + _OUTPUT_FILES
 class BaseAimsMaker(Maker):
     """
     Base FHI-aims job maker.
+
+    To run FHI-aims through custodian, set ``run_aims_kwargs = {"job_type": "normal"}``.
+    For the other possible run configurations (e.g. the custodian handlers), see
+    `atomate2.aims.run.run_aims`.
 
     Parameters
     ----------
@@ -135,5 +144,6 @@ class BaseAimsMaker(Maker):
 
         return Response(
             stop_children=stop_children,
+            stored_data={"custodian": task_doc.custodian},
             output=task_doc if self.store_output_data else None,
         )
