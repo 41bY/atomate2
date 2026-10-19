@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from ase.calculators.aims import Aims, AimsProfile
 from ase.calculators.socketio import SocketIOCalculator
 from custodian import Custodian
-from custodian.aims.handlers import UnconvergedErrorHandler
+from custodian.aims.handlers import RoundChargeErrorHandler, UnconvergedErrorHandler
 from custodian.aims.jobs import AimsJob
 from custodian.aims.validators import AimsOutputValidator
 from emmet.core.types.enums import ValueEnum
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
     from atomate2.aims.schemas.task import AimsTaskDoc
 
-DEFAULT_HANDLERS = (UnconvergedErrorHandler(),)
+DEFAULT_HANDLERS = (UnconvergedErrorHandler(), RoundChargeErrorHandler())
 _DEFAULT_VALIDATORS = (AimsOutputValidator(),)
 
 logger = logging.getLogger(__name__)
