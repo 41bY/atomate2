@@ -19,10 +19,13 @@ from atomate2.aims.files import (
     write_aims_input_set,
 )
 from atomate2.aims.run import run_aims, should_stop_children
+from atomate2.aims.schemas.calculation import AimsObject
 from atomate2.aims.schemas.task import AimsTaskDoc
 from atomate2.common.files import gzip_output_folder
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pymatgen.core import Molecule, Structure
 
 logger = logging.getLogger(__name__)
@@ -44,6 +47,32 @@ _FILES_TO_ZIP = (
     + [f"{name}.orig" for name in _INPUT_FILES]
     + ["custodian.json"]
 )
+
+# The ionic steps are both in the output (trajectory) and in the calculations
+_DATA_OBJECTS = [*(obj.value for obj in AimsObject), "atomic_steps"]
+
+
+def aims_job(method: Callable) -> job:
+    """
+    Decorate the ``make`` method of FHI-aims job makers.
+
+    As ``vasp_job`` does for VASP, it ensures that large data objects (trajectories,
+    band structures, density of states, etc) are stored in the atomate2 data store.
+    Unlike it, it sets no output schema: with ``store_output_data`` False, a maker
+    returns no output.
+
+    Parameters
+    ----------
+    method : callable
+        A BaseAimsMaker.make method. This should not be specified directly and is
+        implied by the decorator.
+
+    Returns
+    -------
+    callable
+        A decorated version of the make function that will generate FHI-aims jobs.
+    """
+    return job(method, data=_DATA_OBJECTS)
 
 
 @due.dcite(Doi("10.1016/j.cpc.2009.06.022"), description="FHI-AIMS")
@@ -93,7 +122,7 @@ class BaseAimsMaker(Maker):
     write_additional_data: dict[str, Any] = field(default_factory=dict)
     store_output_data: bool = True
 
-    @job
+    @aims_job
     def make(
         self,
         structure: Structure | Molecule,

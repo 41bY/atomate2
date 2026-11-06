@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from jobflow import Response, job
+from jobflow import Response
 from monty.serialization import dumpfn
 from pymatgen.io.aims.outputs import AimsOutput
 from pymatgen.io.aims.sets.bs import BandStructureSetGenerator, GWSetGenerator
@@ -19,7 +19,7 @@ from pymatgen.io.aims.sets.core import (
 
 from atomate2 import SETTINGS
 from atomate2.aims.files import cleanup_aims_outputs, write_aims_input_set
-from atomate2.aims.jobs.base import _FILES_TO_ZIP, BaseAimsMaker
+from atomate2.aims.jobs.base import _FILES_TO_ZIP, BaseAimsMaker, aims_job
 from atomate2.aims.run import run_aims_socket, should_stop_children
 from atomate2.aims.schemas.task import AimsTaskDoc
 from atomate2.common.files import gzip_output_folder
@@ -110,7 +110,7 @@ class SocketIOStaticMaker(BaseAimsMaker):
         default_factory=SocketIOSetGenerator
     )
 
-    @job
+    @aims_job
     def make(
         self,
         structure: list[Structure | Molecule],
