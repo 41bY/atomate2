@@ -9,7 +9,7 @@ from atomate2.aims.schemas.task import AimsTaskDoc
 cwd = os.getcwd()
 
 
-def test_base_maker(tmp_path, species_dir, mock_aims, si):
+def test_base_maker(tmp_path, species_dir, mock_aims, si, memory_jobstore):
     # mapping from job name to directory containing test files
     ref_paths = {"relax_si": "relax-si"}
 
@@ -30,13 +30,18 @@ def test_base_maker(tmp_path, species_dir, mock_aims, si):
 
     # run the flow or job and ensure that it finished running successfully
     os.chdir(tmp_path)
-    responses = run_locally(job, create_folders=True, ensure_success=True)
+    responses = run_locally(
+        job, create_folders=True, ensure_success=True, store=memory_jobstore
+    )
     os.chdir(cwd)
 
     # validation the outputs of the job
     output1 = responses[job.uuid][1].output
     assert isinstance(output1, AimsTaskDoc)
     assert output1.output.energy == pytest.approx(-15800.2255448846)
+
+    # the ionic steps (trajectory and atomic_steps) are kept in the data store
+    assert memory_jobstore.additional_stores["data"].count({"job_uuid": job.uuid}) == 2
 
 
 def test_relax_fixed_cell_maker(tmp_path, species_dir, mock_aims, si):
