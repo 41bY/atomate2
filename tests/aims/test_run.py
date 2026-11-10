@@ -1,6 +1,8 @@
 import shutil
 from pathlib import Path
 
+from pyfhiaims.control.control import AimsControl
+
 from atomate2.aims.run import JobType, run_aims
 from atomate2.aims.schemas.task import AimsTaskDoc
 
@@ -16,3 +18,7 @@ def test_run_aims_custodian(test_dir):
     assert Path("control.in.orig").is_file()
     task_doc = AimsTaskDoc.from_directory(Path.cwd())
     assert task_doc.custodian[0]["corrections"] == []
+    # set for ScfMonitorHandler, one of the default handlers
+    parameters = AimsControl.from_file("control.in").parameters
+    assert parameters["sc_iter_limit"] == "1000"
+    assert parameters["elsi_restart"] == "read_and_write 100"
