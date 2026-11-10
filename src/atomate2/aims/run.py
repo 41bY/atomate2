@@ -13,7 +13,11 @@ from typing import TYPE_CHECKING, Any
 from ase.calculators.aims import Aims, AimsProfile
 from ase.calculators.socketio import SocketIOCalculator
 from custodian import Custodian
-from custodian.aims.handlers import RoundChargeErrorHandler, UnconvergedErrorHandler
+from custodian.aims.handlers import (
+    RoundChargeErrorHandler,
+    ScfMonitorHandler,
+    UnconvergedErrorHandler,
+)
 from custodian.aims.jobs import AimsJob
 from custodian.aims.validators import AimsOutputValidator
 from emmet.core.types.enums import ValueEnum
@@ -30,7 +34,11 @@ if TYPE_CHECKING:
 
     from atomate2.aims.schemas.task import AimsTaskDoc
 
-DEFAULT_HANDLERS = (UnconvergedErrorHandler(), RoundChargeErrorHandler())
+DEFAULT_HANDLERS = (
+    UnconvergedErrorHandler(),
+    RoundChargeErrorHandler(),
+    ScfMonitorHandler(),
+)
 _DEFAULT_VALIDATORS = (AimsOutputValidator(),)
 
 logger = logging.getLogger(__name__)
@@ -74,7 +82,9 @@ def run_aims(
     scratch_dir : str
         The scratch directory used by custodian.
     handlers : list of .ErrorHandler
-        The error handlers used by custodian.
+        The error handlers used by custodian. The control.in settings that a
+        :obj:`.ScfMonitorHandler` relies on are added to the settings_override of
+        the :obj:`.AimsJob`.
     validators : list of .Validator
         The validators handlers used by custodian.
     aims_job_kwargs : dict
@@ -102,6 +112,16 @@ def run_aims(
         idx = split_aims_cmd.index(">")
         aims_job_kwargs.setdefault("output_file", split_aims_cmd[idx + 1])
         split_aims_cmd = split_aims_cmd[:idx]
+
+    # The settings of ScfMonitorHandler must be in control.in when FHI-aims starts,
+    # before any handler is called: the job sets them
+    for handler in handlers:
+        if isinstance(handler, ScfMonitorHandler):
+            settings_override = aims_job_kwargs.get("settings_override") or []
+            aims_job_kwargs = {
+                **aims_job_kwargs,
+                "settings_override": [*settings_override, *handler.settings_override],
+            }
 
     if job_type == JobType.NORMAL:
         jobs = [AimsJob(split_aims_cmd, **aims_job_kwargs)]
