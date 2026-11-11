@@ -187,7 +187,9 @@ class Atomate2Settings(BaseSettings):
         "aims.x > aims.out", description="The default command used run FHI-aims"
     )
     AIMS_CUSTODIAN_MAX_ERRORS: int = Field(
-        5, description="Maximum number of errors to correct before custodian gives up"
+        10,
+        description="Maximum number of errors to correct before custodian gives up. "
+        "Each stop of ScfMonitorHandler counts twice: the stop and its correction",
     )
 
     # Elastic constant settings
