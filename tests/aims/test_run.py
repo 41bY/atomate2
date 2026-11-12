@@ -21,4 +21,4 @@ def test_run_aims_custodian(test_dir):
     # set for ScfMonitorHandler, one of the default handlers
     parameters = AimsControl.from_file("control.in").parameters
     assert parameters["sc_iter_limit"] == "1000"
-    assert parameters["elsi_restart"] == "read_and_write 100"
+    assert parameters["elsi_restart"] == "read_and_write 150"
